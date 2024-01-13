@@ -2,7 +2,7 @@
   "name": "webhooks-plug-cdk",
   "version": "0.1.0",
   "bin": {
-    "webhooks-plug-cdk": "bin/webhooks-plug-cdk.js"
+    "webhooks-plug-cdk": "bin/index.ts"
   },
   "scripts": {
     "build": "tsc",
