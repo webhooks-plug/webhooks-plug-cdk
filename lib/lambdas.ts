@@ -3,14 +3,15 @@ import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as cr from "aws-cdk-lib/custom-resources";
 
 // database credentials here
 const envs = {
-  DB_USER: "username",
-  DB_PASSWORD: "password",
-  DB_NAME: "webhooks-plug",
-  DB_HOST: "host",
-  DB_PORT: "port",
+  DB_USER: "postgres",
+  DB_PASSWORD: "jbuwde93283nidjnewjduwehf9823832",
+  DB_NAME: "postgres",
+  DB_HOST: "db.jgbvgenaehlamnecgozh.supabase.co",
+  DB_PORT: "5432",
 };
 
 class LambdaStack extends cdk.Stack {
@@ -23,6 +24,7 @@ class LambdaStack extends cdk.Stack {
     // Create setup db lambda here and run cdk deploy manually for sql updates
     this.dbLambda = new lambda.Function(this, `DBLambda`, {
       functionName: `DBLambda`,
+      description: "Lambda function for db schema",
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: "index.handler",
       timeout: cdk.Duration.seconds(250),
@@ -34,6 +36,7 @@ class LambdaStack extends cdk.Stack {
 
     this.servicesLambda = new lambda.Function(this, `ServicesLambda`, {
       functionName: `ServicesLambda`,
+      description: "Lambda function for services module",
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: "index.handler",
       timeout: cdk.Duration.seconds(250),
@@ -71,6 +74,48 @@ class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, "Database Lambda", {
       value: this.dbLambda.functionArn,
       description: "ARN for database lambda",
+    });
+
+    new cdk.CfnOutput(this, "Webhooks plug API url", {
+      value: api.url,
+      description: "URL of the webhooks plug API Gateway",
+    });
+
+    // DB Lambda Custom Resource
+    const dbLambdaCrRole = new iam.Role(
+      this,
+      "DB Lambda Custom Resource Role",
+      {
+        assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
+      }
+    );
+
+    dbLambdaCrRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["lambda:InvokeFunction"],
+        resources: [this.dbLambda.functionArn],
+      })
+    );
+
+    const crAction = {
+      service: "Lambda",
+      action: "invoke",
+      physicalResourceId: cr.PhysicalResourceId.fromResponse("Payload"),
+      parameters: {
+        FunctionName: this.dbLambda.functionName,
+        InvocationType: "RequestResponse",
+        LogType: "Tail",
+        TriggerChange: "fix_sql_errors", // Change this to anything to trigger the call of the db lambda
+      },
+    };
+
+    new cr.AwsCustomResource(this, "DB Lambda Custom Resource", {
+      onUpdate: crAction,
+      onCreate: crAction,
+      role: dbLambdaCrRole,
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
+      }),
     });
   }
 }
