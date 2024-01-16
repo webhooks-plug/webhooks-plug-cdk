@@ -7,10 +7,15 @@ import { Construct } from "constructs";
 
 const app = new cdk.App();
 
+const appName = "WebhooksPlug";
+
 class WebhooksPlugStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-    new LambdaStack(app, "LambdaStack", {});
+
+    new LambdaStack(this, `${appName}LambdaStack`, {
+      appName,
+    });
   }
 }
 
