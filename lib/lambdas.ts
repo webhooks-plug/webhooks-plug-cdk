@@ -21,6 +21,7 @@ class LambdaStack extends cdk.Stack {
   public logLambda: lambda.Function;
   public servicesLambda: lambda.Function;
   public eventTypesLambda: lambda.Function;
+  public usersLambda: lambda.Function;
 
   constructor(
     scope: Construct,
@@ -103,6 +104,20 @@ class LambdaStack extends cdk.Stack {
       this.eventTypesLambda
     );
 
+    this.usersLambda = new lambda.Function(this, `${appName}UsersLambda`, {
+      functionName: `${appName}UsersLambda`,
+      description: "Lambda function for users module",
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: "index.handler",
+      timeout: cdk.Duration.seconds(250),
+      environment: envsUpdated,
+      code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/users"),
+    });
+
+    const usersIntegration = new apigateway.LambdaIntegration(
+      this.eventTypesLambda
+    );
+
     const api = new apigateway.RestApi(this, `${appName}API`, {
       restApiName: `${appName}API`,
       description: "API Gateway for webhooks plug",
@@ -147,10 +162,27 @@ class LambdaStack extends cdk.Stack {
     });
 
     const eventTypeResource = eventTypesResource.addResource("{event_type_id}");
-    eventTypeResource.addMethod("GET", servicesIntegration, {
+    eventTypeResource.addMethod("GET", eventTypesIntegration, {
       apiKeyRequired: true,
     });
-    eventTypeResource.addMethod("DELETE", servicesIntegration, {
+    eventTypeResource.addMethod("DELETE", eventTypesIntegration, {
+      apiKeyRequired: true,
+    });
+
+    // Enpoints for users lambda
+    const usersResource = api.root.addResource("users");
+    usersResource.addMethod("GET", usersIntegration, {
+      apiKeyRequired: true,
+    });
+    usersResource.addMethod("POST", usersIntegration, {
+      apiKeyRequired: true,
+    });
+
+    const userResource = usersResource.addResource("{user_id}");
+    userResource.addMethod("GET", usersIntegration, {
+      apiKeyRequired: true,
+    });
+    userResource.addMethod("DELETE", usersIntegration, {
       apiKeyRequired: true,
     });
 
@@ -200,10 +232,10 @@ class LambdaStack extends cdk.Stack {
     const crAction = {
       service: "Lambda",
       action: "invoke",
-      physicalResourceId: cr.PhysicalResourceId.fromResponse("Payload"),
+      physicalResourceId: cr.PhysicalResourceId.fromResponse(""),
       parameters: {
         FunctionName: this.dbLambda.functionName,
-        InvocationType: "RequestResponse",
+        InvocationType: "Event",
         LogType: "Tail",
         TriggerChange: "add_more_service_endpoints", // Change this to anything to trigger the call of the db lambda
       },
@@ -211,7 +243,6 @@ class LambdaStack extends cdk.Stack {
 
     new cr.AwsCustomResource(this, "DB Lambda Custom Resource", {
       onUpdate: crAction,
-      onCreate: crAction,
       role: dbLambdaCrRole,
       policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
         resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
