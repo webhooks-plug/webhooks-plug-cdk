@@ -22,6 +22,7 @@ class LambdaStack extends cdk.Stack {
   public servicesLambda: lambda.Function;
   public eventTypesLambda: lambda.Function;
   public usersLambda: lambda.Function;
+  public subscriptionsLambda: lambda.Function;
 
   constructor(
     scope: Construct,
@@ -114,8 +115,26 @@ class LambdaStack extends cdk.Stack {
       code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/users"),
     });
 
-    const usersIntegration = new apigateway.LambdaIntegration(
-      this.eventTypesLambda
+    const usersIntegration = new apigateway.LambdaIntegration(this.usersLambda);
+
+    this.subscriptionsLambda = new lambda.Function(
+      this,
+      `${appName}SubscriptionsLambda`,
+      {
+        functionName: `${appName}SubscriptionsLambda`,
+        description: "Lambda function for subscriptions module",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        handler: "index.handler",
+        timeout: cdk.Duration.seconds(250),
+        environment: envsUpdated,
+        code: lambda.Code.fromAsset(
+          "../webhooks-plug-backend/functions/subscriptions"
+        ),
+      }
+    );
+
+    const subscriptionsIntegration = new apigateway.LambdaIntegration(
+      this.subscriptionsLambda
     );
 
     const api = new apigateway.RestApi(this, `${appName}API`, {
@@ -166,6 +185,24 @@ class LambdaStack extends cdk.Stack {
       apiKeyRequired: true,
     });
     eventTypeResource.addMethod("DELETE", eventTypesIntegration, {
+      apiKeyRequired: true,
+    });
+
+    // Enpoints for subscriptions lambda
+    const subscriptionsResource = api.root.addResource("subscriptions");
+    subscriptionsResource.addMethod("GET", subscriptionsIntegration, {
+      apiKeyRequired: true,
+    });
+    subscriptionsResource.addMethod("POST", subscriptionsIntegration, {
+      apiKeyRequired: true,
+    });
+
+    const subscriptionResource =
+      subscriptionsResource.addResource("{subscription_id}");
+    subscriptionResource.addMethod("GET", subscriptionsIntegration, {
+      apiKeyRequired: true,
+    });
+    subscriptionResource.addMethod("DELETE", subscriptionsIntegration, {
       apiKeyRequired: true,
     });
 
