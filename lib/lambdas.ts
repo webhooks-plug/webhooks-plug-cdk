@@ -9,11 +9,11 @@ import * as cr from "aws-cdk-lib/custom-resources";
 
 // database credentials here
 const envs = {
-  DB_USER: "postgres",
-  DB_PASSWORD: "jbuwde93283nidjnewjduwehf9823832",
-  DB_NAME: "postgres",
-  DB_HOST: "db.jgbvgenaehlamnecgozh.supabase.co",
-  DB_PORT: "5432",
+  DB_USER: process.env.DB_USER!,
+  DB_PASSWORD: process.env.DB_PASSWORD!,
+  DB_NAME: process.env.DB_NAME!,
+  DB_HOST: process.env.DB_HOST!,
+  DB_PORT: process.env.DB_PORT!,
 };
 
 class LambdaStack extends cdk.Stack {
