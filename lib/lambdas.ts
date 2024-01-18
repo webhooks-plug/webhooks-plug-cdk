@@ -222,6 +222,9 @@ class LambdaStack extends cdk.Stack {
     userResource.addMethod("DELETE", usersIntegration, {
       apiKeyRequired: true,
     });
+    userResource.addMethod("PUT", usersIntegration, {
+      apiKeyRequired: true,
+    });
 
     // Enpoints for services lambda
     const servicesResource = api.root.addResource("services");
