@@ -22,6 +22,7 @@ class LambdaStack extends cdk.Stack {
   public servicesLambda: lambda.Function;
   public eventTypesLambda: lambda.Function;
   public usersLambda: lambda.Function;
+  public eventsLambda: lambda.Function;
   public subscriptionsLambda: lambda.Function;
 
   constructor(
@@ -35,6 +36,13 @@ class LambdaStack extends cdk.Stack {
     const stack = cdk.Stack.of(scope);
     const appName = props?.appName;
 
+    const dbLayer = new lambda.LayerVersion(this, `${appName}DBLambdaLayer`, {
+      layerVersionName: `${appName}DBLambdaLayer`,
+      code: lambda.Code.fromAsset("../webhooks-plug-backend/layers/dbLayer"),
+      compatibleRuntimes: [lambda.Runtime.NODEJS_18_X],
+      description: "Lambda Layer for db client",
+    });
+
     this.logLambda = new lambda.Function(this, `${appName}LogLambda`, {
       functionName: `${appName}LogLambda`,
       description: "Lambda function for sns logs",
@@ -42,6 +50,7 @@ class LambdaStack extends cdk.Stack {
       handler: "index.handler",
       timeout: cdk.Duration.seconds(250),
       environment: envs,
+      layers: [dbLayer],
       code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/logs"),
     });
 
@@ -60,6 +69,7 @@ class LambdaStack extends cdk.Stack {
       handler: "index.handler",
       timeout: cdk.Duration.seconds(250),
       environment: envs,
+      layers: [dbLayer],
       code: lambda.Code.fromAsset(
         "../webhooks-plug-backend/functions/database"
       ),
@@ -75,6 +85,7 @@ class LambdaStack extends cdk.Stack {
         handler: "index.handler",
         timeout: cdk.Duration.seconds(250),
         environment: envs,
+        layers: [dbLayer],
         code: lambda.Code.fromAsset(
           "../webhooks-plug-backend/functions/services"
         ),
@@ -95,10 +106,23 @@ class LambdaStack extends cdk.Stack {
         handler: "index.handler",
         timeout: cdk.Duration.seconds(250),
         environment: envsUpdated,
+        layers: [dbLayer],
         code: lambda.Code.fromAsset(
           "../webhooks-plug-backend/functions/event_types"
         ),
       }
+    );
+
+    this.eventTypesLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "sns:CreateTopic",
+          "iam:PassRole",
+          "logs:PutSubscriptionFilter",
+          "lambda:AddPermission",
+        ],
+        resources: ["*"],
+      })
     );
 
     const eventTypesIntegration = new apigateway.LambdaIntegration(
@@ -111,7 +135,8 @@ class LambdaStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: "index.handler",
       timeout: cdk.Duration.seconds(250),
-      environment: envsUpdated,
+      environment: envs,
+      layers: [dbLayer],
       code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/users"),
     });
 
@@ -126,15 +151,45 @@ class LambdaStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_18_X,
         handler: "index.handler",
         timeout: cdk.Duration.seconds(250),
-        environment: envsUpdated,
+        environment: envs,
+        layers: [dbLayer],
         code: lambda.Code.fromAsset(
           "../webhooks-plug-backend/functions/subscriptions"
         ),
       }
     );
 
+    this.subscriptionsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["sns:Subscribe", "sns:ConfirmSubscription"],
+        resources: ["*"],
+      })
+    );
+
     const subscriptionsIntegration = new apigateway.LambdaIntegration(
       this.subscriptionsLambda
+    );
+
+    this.eventsLambda = new lambda.Function(this, `${appName}EventsLambda`, {
+      functionName: `${appName}EventsLambda`,
+      description: "Lambda function for events module",
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: "index.handler",
+      timeout: cdk.Duration.seconds(250),
+      environment: envs,
+      layers: [dbLayer],
+      code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/events"),
+    });
+
+    this.eventsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["sns:Publish"],
+        resources: ["*"],
+      })
+    );
+
+    const eventsIntegration = new apigateway.LambdaIntegration(
+      this.eventsLambda
     );
 
     const api = new apigateway.RestApi(this, `${appName}API`, {
@@ -171,6 +226,23 @@ class LambdaStack extends cdk.Stack {
 
     plan.addApiKey(key);
 
+    // Enpoints for events lambda
+    const eventsResource = api.root.addResource("events");
+    eventsResource.addMethod("GET", eventsIntegration, {
+      apiKeyRequired: true,
+    });
+    eventsResource.addMethod("POST", eventsIntegration, {
+      apiKeyRequired: true,
+    });
+
+    const eventResource = eventsResource.addResource("{event_id}");
+    eventResource.addMethod("GET", eventsIntegration, {
+      apiKeyRequired: true,
+    });
+    eventResource.addMethod("DELETE", eventsIntegration, {
+      apiKeyRequired: true,
+    });
+
     // Enpoints for event types lambda
     const eventTypesResource = api.root.addResource("event_types");
     eventTypesResource.addMethod("GET", eventTypesIntegration, {
@@ -185,6 +257,9 @@ class LambdaStack extends cdk.Stack {
       apiKeyRequired: true,
     });
     eventTypeResource.addMethod("DELETE", eventTypesIntegration, {
+      apiKeyRequired: true,
+    });
+    eventTypeResource.addMethod("PUT", eventTypesIntegration, {
       apiKeyRequired: true,
     });
 
@@ -277,7 +352,7 @@ class LambdaStack extends cdk.Stack {
         FunctionName: this.dbLambda.functionName,
         InvocationType: "Event",
         LogType: "Tail",
-        TriggerChange: "add_more_service_endpoints", // Change this to anything to trigger the call of the db lambda
+        TriggerChange: "update_message_table", // Change this to anything to trigger the call of the db lambda
       },
     };
 
