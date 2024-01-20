@@ -3,7 +3,6 @@ import { Construct } from "constructs";
 import * as iam from "aws-cdk-lib/aws-iam";
 
 const createRole = (stack: any, roleName: string, description: string) => {
-  console.log(roleName);
   const newRole = new iam.Role(stack, roleName, {
     assumedBy: new iam.ServicePrincipal("sns.amazonaws.com"),
     roleName,
