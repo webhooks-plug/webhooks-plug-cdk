@@ -352,7 +352,7 @@ class LambdaStack extends cdk.Stack {
         FunctionName: this.dbLambda.functionName,
         InvocationType: "Event",
         LogType: "Tail",
-        TriggerChange: "update_message_table", // Change this to anything to trigger the call of the db lambda
+        TriggerChange: "fix_sql_errors", // Change this to anything to trigger the call of the db lambda
       },
     };
 
