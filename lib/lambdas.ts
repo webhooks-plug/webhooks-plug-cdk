@@ -23,6 +23,7 @@ class LambdaStack extends cdk.Stack {
   public eventTypesLambda: lambda.Function;
   public usersLambda: lambda.Function;
   public eventsLambda: lambda.Function;
+  public messagesLambda: lambda.Function;
   public subscriptionsLambda: lambda.Function;
 
   constructor(
@@ -142,6 +143,27 @@ class LambdaStack extends cdk.Stack {
 
     const usersIntegration = new apigateway.LambdaIntegration(this.usersLambda);
 
+    this.messagesLambda = new lambda.Function(
+      this,
+      `${appName}MessagesLambda`,
+      {
+        functionName: `${appName}MessagesLambda`,
+        description: "Lambda function for messages module",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        handler: "index.handler",
+        timeout: cdk.Duration.seconds(250),
+        environment: envs,
+        layers: [dbLayer],
+        code: lambda.Code.fromAsset(
+          "../webhooks-plug-backend/functions/messages"
+        ),
+      }
+    );
+
+    const messagesIntegration = new apigateway.LambdaIntegration(
+      this.messagesLambda
+    );
+
     this.subscriptionsLambda = new lambda.Function(
       this,
       `${appName}SubscriptionsLambda`,
@@ -240,6 +262,17 @@ class LambdaStack extends cdk.Stack {
       apiKeyRequired: true,
     });
     eventResource.addMethod("DELETE", eventsIntegration, {
+      apiKeyRequired: true,
+    });
+
+    // Enpoints for messages lambda
+    const messagesResource = api.root.addResource("messages");
+    messagesResource.addMethod("GET", messagesIntegration, {
+      apiKeyRequired: true,
+    });
+
+    const messageResource = messagesResource.addResource("{message_id}");
+    messageResource.addMethod("GET", messagesIntegration, {
       apiKeyRequired: true,
     });
 
