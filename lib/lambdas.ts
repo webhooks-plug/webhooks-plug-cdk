@@ -39,7 +39,7 @@ class LambdaStack extends cdk.Stack {
 
     const dbLayer = new lambda.LayerVersion(this, `${appName}DBLambdaLayer`, {
       layerVersionName: `${appName}DBLambdaLayer`,
-      code: lambda.Code.fromAsset("../webhooks-plug-backend/layers/dbLayer"),
+      code: lambda.Code.fromAsset("../server/layers/dbLayer"),
       compatibleRuntimes: [lambda.Runtime.NODEJS_18_X],
       description: "Lambda Layer for db client",
     });
@@ -52,7 +52,7 @@ class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(250),
       environment: envs,
       layers: [dbLayer],
-      code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/logs"),
+      code: lambda.Code.fromAsset("../server/functions/logs"),
     });
 
     const envsUpdated = {
@@ -71,9 +71,7 @@ class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(250),
       environment: envs,
       layers: [dbLayer],
-      code: lambda.Code.fromAsset(
-        "../webhooks-plug-backend/functions/database"
-      ),
+      code: lambda.Code.fromAsset("../server/functions/database"),
     });
 
     this.servicesLambda = new lambda.Function(
@@ -87,9 +85,7 @@ class LambdaStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(250),
         environment: envs,
         layers: [dbLayer],
-        code: lambda.Code.fromAsset(
-          "../webhooks-plug-backend/functions/services"
-        ),
+        code: lambda.Code.fromAsset("../server/functions/services"),
       }
     );
 
@@ -108,9 +104,7 @@ class LambdaStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(250),
         environment: envsUpdated,
         layers: [dbLayer],
-        code: lambda.Code.fromAsset(
-          "../webhooks-plug-backend/functions/event_types"
-        ),
+        code: lambda.Code.fromAsset("../server/functions/event_types"),
       }
     );
 
@@ -138,7 +132,7 @@ class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(250),
       environment: envs,
       layers: [dbLayer],
-      code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/users"),
+      code: lambda.Code.fromAsset("../server/functions/users"),
     });
 
     const usersIntegration = new apigateway.LambdaIntegration(this.usersLambda);
@@ -154,9 +148,7 @@ class LambdaStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(250),
         environment: envs,
         layers: [dbLayer],
-        code: lambda.Code.fromAsset(
-          "../webhooks-plug-backend/functions/messages"
-        ),
+        code: lambda.Code.fromAsset("../server/functions/messages"),
       }
     );
 
@@ -175,9 +167,7 @@ class LambdaStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(250),
         environment: envs,
         layers: [dbLayer],
-        code: lambda.Code.fromAsset(
-          "../webhooks-plug-backend/functions/subscriptions"
-        ),
+        code: lambda.Code.fromAsset("../server/functions/subscriptions"),
       }
     );
 
@@ -200,7 +190,7 @@ class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(250),
       environment: envs,
       layers: [dbLayer],
-      code: lambda.Code.fromAsset("../webhooks-plug-backend/functions/events"),
+      code: lambda.Code.fromAsset("../server/functions/events"),
     });
 
     this.eventsLambda.addToRolePolicy(
@@ -359,6 +349,11 @@ class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, "Webhooks plug API url", {
       value: api.url,
       description: "URL of the webhooks plug API Gateway",
+    });
+
+    new cdk.CfnOutput(this, "Webhooks plug API key", {
+      value: key.keyId,
+      description: "Api key of the webhooks plug API Gateway",
     });
 
     // DB Lambda Custom Resource
