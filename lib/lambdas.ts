@@ -34,7 +34,7 @@ class LambdaStack extends cdk.Stack {
     }
   ) {
     super(scope, id, props);
-    const stack = cdk.Stack.of(scope);
+    const stack = cdk.Stack.of(this);
     const appName = props?.appName;
 
     const dbLayer = new lambda.LayerVersion(this, `${appName}DBLambdaLayer`, {
