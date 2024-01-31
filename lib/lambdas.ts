@@ -356,6 +356,11 @@ class LambdaStack extends cdk.Stack {
       description: "Api key of the webhooks plug API Gateway",
     });
 
+    new cdk.CfnOutput(this, "AWS Region", {
+      value: stack.region,
+      description: "The region where the stack is deployed to",
+    });
+
     // DB Lambda Custom Resource
     const dbLambdaCrRole = new iam.Role(
       this,
